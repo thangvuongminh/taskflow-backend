@@ -58,4 +58,51 @@ class TaskServiceTest {
 
         verify(taskRepository).save(argThat(t -> t.getStatus() == TaskStatus.IN_PROGRESS));
     }
+
+    @Test
+    void createTask_assigneeIsAdmin_throwsBadRequest() {
+        Project proj = Project.builder().id(1L).build();
+        User creator = User.builder().id(10L).build();
+
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(proj));
+        when(userRepository.findById(10L)).thenReturn(Optional.of(creator));
+        doNothing().when(projectService).requireRole(1L, 10L, ProjectRole.MANAGER);
+
+        when(memberRepository.findByProjectIdAndUserId(1L, 99L))
+            .thenReturn(Optional.of(ProjectMember.builder().role(ProjectRole.ADMIN).build()));
+        when(userRepository.findById(99L)).thenReturn(Optional.of(User.builder().id(99L).build()));
+
+        var req = new com.taskmanager.dto.request.CreateTaskRequest(
+            "Test task", null, null, null, null, 99L, null, null
+        );
+        assertThatThrownBy(() -> taskService.createTask(1L, req, 10L))
+            .isInstanceOf(com.taskmanager.exception.BadRequestException.class)
+            .hasMessageContaining("Admin");
+    }
+
+    @Test
+    void createTask_assigneeMember_succeeds() {
+        Project proj = Project.builder().id(1L).build();
+        User creator = User.builder().id(10L).build();
+        User assignee = User.builder().id(20L).build();
+
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(proj));
+        when(userRepository.findById(10L)).thenReturn(Optional.of(creator));
+        when(userRepository.findById(20L)).thenReturn(Optional.of(assignee));
+        doNothing().when(projectService).requireRole(1L, 10L, ProjectRole.MANAGER);
+
+        when(memberRepository.findByProjectIdAndUserId(1L, 20L))
+            .thenReturn(Optional.of(ProjectMember.builder().role(ProjectRole.MEMBER).build()));
+
+        Task savedTask = Task.builder().id(1L).project(proj).title("Test task")
+            .createdBy(creator).assignee(assignee)
+            .status(com.taskmanager.enums.TaskStatus.TODO)
+            .priority(com.taskmanager.enums.Priority.MEDIUM).build();
+        when(taskRepository.save(any())).thenReturn(savedTask);
+
+        var req = new com.taskmanager.dto.request.CreateTaskRequest(
+            "Test task", null, null, null, null, 20L, null, null
+        );
+        assertThatCode(() -> taskService.createTask(1L, req, 10L)).doesNotThrowAnyException();
+    }
 }

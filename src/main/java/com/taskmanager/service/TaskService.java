@@ -52,7 +52,16 @@ public class TaskService {
             .build();
 
         if (req.assigneeId() != null) {
-            task.setAssignee(userRepository.findById(req.assigneeId()).orElse(null));
+            User assignee = userRepository.findById(req.assigneeId()).orElse(null);
+            if (assignee != null) {
+                memberRepository.findByProjectIdAndUserId(projectId, req.assigneeId())
+                    .ifPresent(pm -> {
+                        if (pm.getRole() == ProjectRole.ADMIN) {
+                            throw new BadRequestException("Không thể gán task cho thành viên có role Admin");
+                        }
+                    });
+                task.setAssignee(assignee);
+            }
         }
         if (req.sprintId() != null) {
             task.setSprint(sprintRepository.findById(req.sprintId()).orElse(null));
@@ -79,7 +88,17 @@ public class TaskService {
         if (req.storyPoints() != null) task.setStoryPoints(req.storyPoints());
         if (req.dueDate() != null) task.setDueDate(req.dueDate());
         if (req.assigneeId() != null) {
-            task.setAssignee(userRepository.findById(req.assigneeId()).orElse(null));
+            User assignee = userRepository.findById(req.assigneeId()).orElse(null);
+            if (assignee != null) {
+                Long projId = task.getProject().getId();
+                memberRepository.findByProjectIdAndUserId(projId, req.assigneeId())
+                    .ifPresent(pm -> {
+                        if (pm.getRole() == ProjectRole.ADMIN) {
+                            throw new BadRequestException("Không thể gán task cho thành viên có role Admin");
+                        }
+                    });
+                task.setAssignee(assignee);
+            }
         }
         if (req.sprintId() != null) {
             task.setSprint(sprintRepository.findById(req.sprintId()).orElse(null));
