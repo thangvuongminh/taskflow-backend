@@ -59,6 +59,7 @@ public class Task {
     private User createdBy;
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Comment> comments = new ArrayList<>();
 
     @Column(name = "due_date")
